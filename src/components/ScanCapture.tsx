@@ -1,7 +1,10 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { runOcr } from '../lib/ocr'
 import type { ParseResult } from '../lib/parseReceipt'
 import './ScanCapture.css'
+
+/** Reject pathological uploads that can lock the tab during decode/OCR. */
+const MAX_UPLOAD_BYTES = 12 * 1024 * 1024
 
 interface Props {
   onParsed: (result: ParseResult) => void
@@ -21,23 +24,51 @@ declare global {
 export function ScanCapture({ onParsed, onSkip }: Props) {
   const cameraRef = useRef<HTMLInputElement>(null)
   const galleryRef = useRef<HTMLInputElement>(null)
+  const previewUrlRef = useRef<string | null>(null)
   const [preview, setPreview] = useState<string | null>(null)
   const [progress, setProgress] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
+  useEffect(() => {
+    return () => {
+      if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current)
+    }
+  }, [])
+
+  function setPreviewFile(file: File) {
+    if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current)
+    const url = URL.createObjectURL(file)
+    previewUrlRef.current = url
+    setPreview(url)
+  }
+
   async function handleFile(file: File | undefined) {
     if (!file) return
     setError(null)
+
+    if (!file.type.startsWith('image/') && file.type !== '') {
+      setError('Please choose an image file (JPEG or PNG).')
+      return
+    }
+    if (file.size > MAX_UPLOAD_BYTES) {
+      setError('Photo is too large (max 12 MB). Try a smaller crop or lower resolution.')
+      return
+    }
+
     setBusy(true)
     setProgress(0)
-    const url = URL.createObjectURL(file)
-    setPreview(url)
+    setPreviewFile(file)
 
     try {
-      const runner = window.__splitbillMockOcr ?? runOcr
+      const runner =
+        import.meta.env.DEV && window.__splitbillMockOcr
+          ? window.__splitbillMockOcr
+          : runOcr
       const result = await runner(file, setProgress)
-      window.__splitbillLastOcr = result
+      if (import.meta.env.DEV) {
+        window.__splitbillLastOcr = result
+      }
       if (result.items.length === 0) {
         setError(
           result.quality === 'empty'
@@ -78,8 +109,8 @@ export function ScanCapture({ onParsed, onSkip }: Props) {
           className="scan__progress"
           role="progressbar"
           aria-valuemin={0}
-          aria-valuemax={100}
           aria-valuenow={progress}
+          aria-valuemax={100}
           aria-label="OCR progress"
         >
           <div className="scan__progress-track">
@@ -133,14 +164,22 @@ export function ScanCapture({ onParsed, onSkip }: Props) {
         accept="image/*"
         capture="environment"
         className="sr-only"
-        onChange={(e) => void handleFile(e.target.files?.[0])}
+        onChange={(e) => {
+          const f = e.target.files?.[0]
+          e.target.value = ''
+          void handleFile(f)
+        }}
       />
       <input
         ref={galleryRef}
         type="file"
         accept="image/*"
         className="sr-only"
-        onChange={(e) => void handleFile(e.target.files?.[0])}
+        onChange={(e) => {
+          const f = e.target.files?.[0]
+          e.target.value = ''
+          void handleFile(f)
+        }}
       />
     </div>
   )

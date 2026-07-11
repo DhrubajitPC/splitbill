@@ -62,3 +62,7 @@ Product UI follows Impeccable (`PRODUCT.md`, `DESIGN.md`). Warm paper atmosphere
 ## OCR notes
 
 The app uses **PaddleOCR** in the browser (not a vision chat model). It reads characters from pixels; purple venue lighting and curved paper still cause typos. Always review the Items step. After `npm install`, `postinstall` patches a Vite/clipper-lib interop issue in `@paddleocr/paddleocr-js`.
+
+## Security
+
+Client-only: receipt images and bill state never leave the device (aside from OCR model downloads from jsDelivr / Paddle CDN). Hardening includes Content-Security-Policy, validated `localStorage` parsing, upload size limits, and production-disabled test OCR hooks. `npm audit` should stay clean for production dependencies.

@@ -146,7 +146,7 @@ async function runPaddle(
   const boxes = toOcrBoxes(result?.items ?? [])
   const rawText = boxes.map((b) => b.text).join('\n')
   const parsed = finalizeParse(boxes, rawText)
-  if (typeof window !== 'undefined') {
+  if (import.meta.env.DEV && typeof window !== 'undefined') {
     ;(window as Window & { __splitbillLastBoxes?: OcrBox[] }).__splitbillLastBoxes = boxes
   }
   return parsed
