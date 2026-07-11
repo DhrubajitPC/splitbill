@@ -1,0 +1,124 @@
+.item-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.item-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--color-rule);
+}
+
+.item-list__empty {
+  padding: var(--space-4) 0;
+  color: var(--color-ink-faint);
+  font-size: 0.9375rem;
+}
+
+.item-row {
+  display: grid;
+  grid-template-columns: 1fr minmax(5.5rem, 6.5rem) var(--tap-min);
+  gap: var(--space-2);
+  align-items: center;
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--color-rule);
+}
+
+.field {
+  width: 100%;
+  min-height: var(--tap-min);
+  padding: 0.65rem 0.75rem;
+  border: 1.5px solid var(--color-rule);
+  border-radius: var(--radius-sm);
+  background: var(--color-paper-raised);
+  color: var(--color-ink);
+  font: inherit;
+  font-size: 1rem;
+  box-shadow: var(--shadow-soft);
+}
+
+.field:focus {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+.field--price {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  padding-inline: 0.4rem;
+}
+
+.price-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  color: var(--color-ink-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.price-wrap .field {
+  flex: 1;
+}
+
+.icon-btn {
+  width: var(--tap-min);
+  height: var(--tap-min);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-ink-muted);
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.icon-btn:hover,
+.icon-btn:focus-visible {
+  color: var(--color-danger);
+  background: var(--color-warn-soft);
+}
+
+.extras {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.extras__hint {
+  margin: var(--space-2) 0 0;
+  font-size: 0.8125rem;
+  color: var(--color-ink-faint);
+}
+
+.extra {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  font-size: 1rem;
+  color: var(--color-ink-muted);
+}
+
+.extra .price-wrap {
+  width: 7rem;
+}
+
+.items-sum {
+  margin: 0;
+  font-size: 0.9375rem;
+  color: var(--color-ink-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

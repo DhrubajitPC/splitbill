@@ -1,0 +1,77 @@
+.scan__hint {
+  margin: 0 0 var(--space-4);
+  color: var(--color-ink-muted);
+  font-size: 0.9375rem;
+}
+
+.scan__preview {
+  margin-bottom: var(--space-4);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 1px solid var(--color-rule);
+  background: var(--color-ink);
+}
+
+.scan__preview img {
+  display: block;
+  width: 100%;
+  max-height: 14rem;
+  object-fit: contain;
+}
+
+.scan__progress {
+  margin-bottom: var(--space-4);
+  padding: var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--color-paper-raised);
+  border: 1px solid var(--color-rule);
+}
+
+.scan__progress-track {
+  height: 0.35rem;
+  border-radius: var(--radius-pill);
+  background: var(--color-rule);
+  overflow: hidden;
+  margin-bottom: var(--space-2);
+}
+
+.scan__progress-bar {
+  height: 100%;
+  width: 100%;
+  border-radius: var(--radius-pill);
+  background: var(--color-accent);
+  transform-origin: left center;
+  transition: transform 160ms linear;
+}
+
+.scan__progress-label {
+  font-size: 0.875rem;
+  color: var(--color-ink-muted);
+}
+
+.scan__error {
+  margin: 0 0 var(--space-4);
+  padding: var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--color-warn-soft);
+  color: var(--color-warn);
+  font-size: 0.875rem;
+}
+
+.scan__actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

@@ -1,0 +1,41 @@
+:root {
+  --color-paper: #f3ede3;
+  --color-paper-raised: #fffbf5;
+  --color-ink: #1c1915;
+  --color-ink-muted: #5c554c;
+  --color-ink-faint: #8a8175;
+  --color-rule: #d9d0c3;
+  --color-accent: #0f6b4c;
+  --color-accent-pressed: #0a4f39;
+  --color-accent-soft: #d8ede4;
+  --color-warn: #9a3412;
+  --color-warn-soft: #f5e0d4;
+  --color-danger: #8b1e1e;
+
+  --font-display: "Newsreader", "Iowan Old Style", "Palatino Linotype", Palatino, serif;
+  --font-ui: "Source Sans 3", "Source Sans Pro", "Segoe UI", sans-serif;
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-pill: 999px;
+
+  --tap-min: 2.75rem;
+  --content-max: 28rem;
+  --bottom-bar: calc(4.5rem + env(safe-area-inset-bottom, 0px));
+
+  --shadow-soft: 0 1px 2px rgb(28 25 21 / 0.06);
+  --ease-quick: 120ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --ease-quick: 0ms;
+  }
+}

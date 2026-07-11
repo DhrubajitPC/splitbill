@@ -1,0 +1,88 @@
+.assign__hint {
+  margin: 0 0 var(--space-4);
+  color: var(--color-ink-muted);
+  font-size: 0.9375rem;
+}
+
+.assign-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.assign-row {
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--color-rule);
+}
+
+.assign-row--warn {
+  padding: var(--space-3);
+  margin-inline: calc(-1 * var(--space-3));
+  border-radius: var(--radius-md);
+  background: var(--color-warn-soft);
+  border-bottom-color: transparent;
+}
+
+.assign-row__name {
+  margin: 0;
+  font-weight: 600;
+  color: var(--color-ink);
+}
+
+.assign-row__price {
+  margin: 0.15rem 0 var(--space-3);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-ink-muted);
+  font-size: 0.9375rem;
+}
+
+.assign-row__flag {
+  color: var(--color-warn);
+  font-weight: 600;
+}
+
+.assign-unassigned {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin: 0 0 var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--color-warn-soft);
+}
+
+.assign-unassigned__label {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-warn);
+}
+
+.assign-unassigned__amount {
+  margin: 0.15rem 0 0;
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-ink);
+}
+
+.assign-unassigned__count {
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-ink-muted);
+}
+
+.assign-unassigned__suggest {
+  margin: 0.35rem 0 0;
+  font-size: 0.875rem;
+  color: var(--color-ink-muted);
+}

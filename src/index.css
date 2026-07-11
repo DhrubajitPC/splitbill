@@ -1,0 +1,39 @@
+@import url('https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600;6..72,700&family=Source+Sans+3:wght@400;600;700&display=swap');
+@import './styles/tokens.css';
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  font-family: var(--font-ui);
+  font-size: 16px;
+  line-height: 1.45;
+  color: var(--color-ink);
+  background:
+    radial-gradient(120% 80% at 100% -10%, #e8dcc8 0%, transparent 55%),
+    radial-gradient(90% 60% at -10% 100%, #e2ebe4 0%, transparent 50%),
+    var(--color-paper);
+}
+
+#root {
+  min-height: 100dvh;
+}
+
+button,
+input {
+  font: inherit;
+  color: inherit;
+}
+
+img {
+  max-width: 100%;
+}
