@@ -27,6 +27,18 @@ npm run preview
 
 Build outputs to `dist/`. Host that folder anywhere static:
 
+**GitHub Pages**
+
+Pushes to `main` deploy via GitHub Actions to:
+
+`https://<your-username>.github.io/splitbill/`
+
+Local production build for that path:
+
+```bash
+GITHUB_PAGES=1 npm run build
+```
+
 **Cloudflare Pages**
 
 ```bash
@@ -41,15 +53,6 @@ Or connect the repo in the Cloudflare dashboard with build command `npm run buil
 ```bash
 npm run build
 npx netlify deploy --prod --dir=dist
-```
-
-**GitHub Pages**
-
-Set `base` in `vite.config.ts` if the site is not at the domain root, then:
-
-```bash
-npm run build
-# upload dist/ or use a GitHub Action that publishes dist
 ```
 
 ## Design
