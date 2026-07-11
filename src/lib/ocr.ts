@@ -5,6 +5,7 @@ import {
   type OcrBox,
   type ParseResult,
 } from './parseReceipt'
+import { isChromeGeminiAvailable, runChromeGeminiOcr } from './chromeGemini'
 
 type OcrEngine = {
   initialize: () => Promise<unknown>
@@ -220,9 +221,23 @@ export async function runOcr(
   file: Blob,
   onProgress?: (pct: number) => void,
 ): Promise<ParseResult & { rawText: string }> {
-  onProgress?.(3)
+  onProgress?.(2)
   const png = await normalizeToPng(file)
-  onProgress?.(12)
+  onProgress?.(8)
+
+  // Prefer Chrome's on-device Gemini Nano when available (best for messy photos).
+  if (await isChromeGeminiAvailable()) {
+    try {
+      const result = await withTimeout(runChromeGeminiOcr(png, onProgress), 120_000, 'Chrome AI')
+      if (result.items.length >= 2) {
+        onProgress?.(100)
+        return result
+      }
+      console.warn('Chrome AI returned sparse items; falling back to OCR engines')
+    } catch (geminiErr) {
+      console.warn('Chrome AI receipt extract failed, falling back to OCR:', geminiErr)
+    }
+  }
 
   try {
     const result = await withTimeout(runPaddle(png, onProgress), 90_000, 'Primary OCR')

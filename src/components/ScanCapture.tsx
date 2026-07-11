@@ -120,10 +120,10 @@ export function ScanCapture({ onParsed, onSkip }: Props) {
             />
           </div>
           <span className="scan__progress-label">
-            {progress < 52
-              ? 'Loading OCR model…'
-              : progress < 60
-                ? 'Trying backup OCR…'
+            {progress < 45
+              ? 'Loading on-device AI…'
+              : progress < 55
+                ? 'Trying OCR engine…'
                 : 'Reading receipt…'}{' '}
             {progress}%
           </span>
