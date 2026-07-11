@@ -66,4 +66,4 @@ On **desktop Chrome**, Splitbill prefers the built-in **Prompt API (Gemini Nano)
 Chrome AI needs a recent desktop Chrome with enough free disk/RAM (see [Chrome built-in AI](https://developer.chrome.com/docs/ai/get-started)). First use may download the model.
 ## Security
 
-Client-only: receipt images and bill state never leave the device (aside from OCR model downloads from jsDelivr / Paddle CDN). Hardening includes Content-Security-Policy, validated `localStorage` parsing, upload size limits, and production-disabled test OCR hooks. `npm audit` should stay clean for production dependencies.
+Client-only: receipt images and bill state never leave the device (aside from OCR model downloads from jsDelivr / Paddle CDN). Hardening includes Content-Security-Policy (with `unsafe-eval` required by the OCR/WASM stack), validated `localStorage` parsing, upload size limits, and production-disabled test OCR hooks. `npm audit` should stay clean for production dependencies.

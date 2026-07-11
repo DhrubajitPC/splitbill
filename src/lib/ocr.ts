@@ -6,6 +6,7 @@ import {
   type ParseResult,
 } from './parseReceipt'
 import { isChromeGeminiAvailable, runChromeGeminiOcr } from './chromeGemini'
+import { isReliableExtract, scoreExtract } from './extractQuality'
 
 type OcrEngine = {
   initialize: () => Promise<unknown>
@@ -42,7 +43,6 @@ async function getPaddleEngine(onProgress?: (pct: number) => void): Promise<OcrE
       onProgress?.(50)
       return ocr as unknown as OcrEngine
     })().catch((err) => {
-      // Allow retries after a failed model download / import
       enginePromise = null
       throw err
     })
@@ -84,7 +84,6 @@ export async function normalizeToPng(file: Blob): Promise<Blob> {
   return blob
 }
 
-/** Max-channel boost for purple venue lighting (Tesseract fallback). */
 async function enhanceForTesseract(file: Blob): Promise<HTMLCanvasElement> {
   const bitmap = await createImageBitmap(file)
   const canvas = document.createElement('canvas')
@@ -179,22 +178,6 @@ async function runTesseract(
   }
 }
 
-function friendlyError(err: unknown): Error {
-  const msg = err instanceof Error ? err.message : String(err)
-  if (/Failed to download|HTTP|fetch|network|Load failed|CDN/i.test(msg)) {
-    return new Error(
-      'Could not download the OCR model (network). Check connection and retry — we’ll try a backup engine.',
-    )
-  }
-  if (/clipper-lib|does not provide an export/i.test(msg)) {
-    return new Error('OCR engine failed to load in this browser build. Retrying backup OCR…')
-  }
-  if (/HEIC|decode|read this image/i.test(msg)) {
-    return new Error(msg)
-  }
-  return err instanceof Error ? err : new Error(msg)
-}
-
 async function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined
   try {
@@ -217,6 +200,26 @@ async function withTimeout<T>(promise: Promise<T>, ms: number, label: string): P
   }
 }
 
+function pickBest(
+  candidates: Array<ParseResult & { rawText: string }>,
+): (ParseResult & { rawText: string }) | null {
+  let best: (ParseResult & { rawText: string }) | null = null
+  let bestScore = -1
+  for (const c of candidates) {
+    const s = scoreExtract(c)
+    if (s > bestScore) {
+      best = c
+      bestScore = s
+    }
+  }
+  return best
+}
+
+/**
+ * Extract receipt line items. PaddleOCR is primary (reliable on dense receipts);
+ * Chrome Gemini Nano is only used when already downloaded and it scores better;
+ * Tesseract is last resort.
+ */
 export async function runOcr(
   file: Blob,
   onProgress?: (pct: number) => void,
@@ -225,39 +228,72 @@ export async function runOcr(
   const png = await normalizeToPng(file)
   onProgress?.(8)
 
-  // Prefer Chrome's on-device Gemini Nano when available (best for messy photos).
-  if (await isChromeGeminiAvailable()) {
-    try {
-      const result = await withTimeout(runChromeGeminiOcr(png, onProgress), 120_000, 'Chrome AI')
-      if (result.items.length >= 2) {
-        onProgress?.(100)
-        return result
-      }
-      console.warn('Chrome AI returned sparse items; falling back to OCR engines')
-    } catch (geminiErr) {
-      console.warn('Chrome AI receipt extract failed, falling back to OCR:', geminiErr)
-    }
-  }
+  const candidates: Array<ParseResult & { rawText: string }> = []
 
   try {
-    const result = await withTimeout(runPaddle(png, onProgress), 90_000, 'Primary OCR')
-    onProgress?.(100)
-    return result
-  } catch (paddleErr) {
-    console.warn('PaddleOCR failed, falling back to Tesseract:', paddleErr)
-    enginePromise = null
-    onProgress?.(52)
-    try {
-      const result = await withTimeout(runTesseract(png, onProgress), 90_000, 'Backup OCR')
+    const paddle = await withTimeout(runPaddle(png, onProgress), 90_000, 'Primary OCR')
+    candidates.push(paddle)
+    if (isReliableExtract(paddle)) {
       onProgress?.(100)
-      return result
-    } catch (tessErr) {
-      console.error('Tesseract fallback failed:', tessErr)
-      const paddleFriendly = friendlyError(paddleErr)
-      const tessMsg = tessErr instanceof Error ? tessErr.message : String(tessErr)
-      throw new Error(
-        `${paddleFriendly.message} Backup also failed: ${tessMsg}`,
-      )
+      return paddle
     }
+    console.warn('Paddle extract looked weak; trying other engines', {
+      items: paddle.items.length,
+      sum: paddle.items.reduce((s, i) => s + i.price, 0),
+    })
+  } catch (paddleErr) {
+    console.warn('PaddleOCR failed:', paddleErr)
+    enginePromise = null
   }
+
+  // Only use Gemini when the model is already on-device (avoid half-ready / garbage).
+  try {
+    if (typeof LanguageModel !== 'undefined') {
+      const status = await LanguageModel.availability({
+        expectedInputs: [
+          { type: 'text', languages: ['en'] },
+          { type: 'image' },
+        ],
+        expectedOutputs: [{ type: 'text', languages: ['en'] }],
+      })
+      if (status === 'available' && (await isChromeGeminiAvailable())) {
+        onProgress?.(20)
+        const gemini = await withTimeout(runChromeGeminiOcr(png, onProgress), 90_000, 'Chrome AI')
+        candidates.push(gemini)
+        if (isReliableExtract(gemini)) {
+          const paddle = candidates[0]
+          if (!paddle || scoreExtract(gemini) >= scoreExtract(paddle)) {
+            onProgress?.(100)
+            return gemini
+          }
+        }
+      }
+    }
+  } catch (geminiErr) {
+    console.warn('Chrome AI skipped/failed:', geminiErr)
+  }
+
+  onProgress?.(52)
+  try {
+    const tess = await withTimeout(runTesseract(png, onProgress), 90_000, 'Backup OCR')
+    candidates.push(tess)
+  } catch (tessErr) {
+    console.warn('Tesseract failed:', tessErr)
+  }
+
+  const best = pickBest(candidates)
+  if (best && best.items.length > 0) {
+    onProgress?.(100)
+    return best
+  }
+
+  const last = candidates[candidates.length - 1]
+  if (last) {
+    onProgress?.(100)
+    return last
+  }
+
+  throw new Error('OCR failed. Try another photo or enter items manually.')
 }
+
+export { isReliableExtract, scoreExtract } from './extractQuality'

@@ -24,7 +24,7 @@ const JUNK_RE =
 
 /** Header / contact / meta lines that must never enter the item-name queue. */
 const HEADER_JUNK_RE =
-  /@|\.sg\b|\.com\b|\/|cosmicdiner|kanp\s*ai|\bkanpai\b|\bwww\.|\bhttps?:|\b\d{1,2}\/\d{1,2}\/\d{2,4}\b|\b\+?\d{2,3}[\s-]?\d{3,4}[\s-]?\d{4}\b|\bgst\s*reg|\bs\(\d{5,}\)?|\bclosed\s*bill\b|\bthank\s*you\b|\bcraf?t\s*beer\b|\btapas\b|\bbeer\s*garden\b|\bchurch\s*st|\btel\b|\bpax\b|\btbl\b|\brcpt\b|\bpos\d*\b|\bop\b|\bqlub\b|^no:?$|\bemail\b|\bstitle\b|corporate\s*info/i
+  /@|\.sg\b|\.com\b|https?:\/\/|www\.|cosmicdiner|kanp\s*ai|\bkanpai\b|\b\d{1,2}\/\d{1,2}\/\d{2,4}\b|\b\+?\d{2,3}[\s-]?\d{3,4}[\s-]?\d{4}\b|\bgst\s*reg|\bs\(\d{5,}\)?|\bclosed\s*bill\b|\bthank\s*you\b|\bcraf?t\s*beer\b|\btapas\b|\bbeer\s*garden\b|\bchurch\s*st|\btel\b|\bpax\b|\btbl\b|\brcpt\b|\bpos\d*\b|\bop\b|\bqlub\b|^no:?$|\bemail\b|\bstitle\b|corporate\s*info/i
 
 const MONEY_AT_END_RE = /\$?\s*(\d{1,4})\s*[.,]\s*(\d{1,2})\s*$/
 const BARE_DOLLAR_INT_RE = /\$\s*(\d{1,4})\s*$/
@@ -92,8 +92,23 @@ function extractMoneyAtEnd(text: string): { price: number; name: string } | null
 }
 
 function letterRatio(s: string): number {
-  const letters = (s.match(/[A-Za-z]/g) ?? []).length
+  const letters = (s.match(/[A-Za-z\u3040-\u30ff\u3400-\u9fff\uf900-\ufaff]/g) ?? []).length
   return letters / Math.max(s.replace(/\s/g, '').length, 1)
+}
+
+function isCjkHeavy(s: string): boolean {
+  const chars = s.replace(/\s/g, '')
+  if (!chars) return false
+  const cjk = (chars.match(/[\u3040-\u30ff\u3400-\u9fff\uf900-\ufaff]/g) ?? []).length
+  return cjk / chars.length >= 0.35 || cjk >= 2
+}
+
+function hasLatinWord(s: string): boolean {
+  return /[A-Za-z]{3,}/.test(s)
+}
+
+function isFocFreebieText(text: string): boolean {
+  return /\[?TA\]?FOC|foc[_-]|\bfoc\b|吊饰|plush\s*keyring/i.test(text)
 }
 
 function isHeaderOrMeta(name: string): boolean {
@@ -110,6 +125,7 @@ function isLikelyItemName(name: string): boolean {
   const t = name.trim()
   if (t.length < 2) return false
   if (/^\d+$/.test(t)) return false
+  if (/^flow\]?$/i.test(t)) return false
   if (isHeaderOrMeta(t)) return false
   if (letterRatio(t) < 0.35) return false
   const withoutQty = t.replace(/^\d+\s+/, '').replace(/^[*\-–—]+\s*/, '')
@@ -151,11 +167,17 @@ function cleanItemName(name: string): string {
 function classifySpecial(line: string, price: number, out: ParseResult): boolean {
   const lower = line.toLowerCase().replace(/\s+/g, '')
   const spaced = line.toLowerCase()
-  if (/svrchrg|syrchrg|servicech/.test(lower) || /\bsv[ry]\s*chrg\b|\bservice\s*ch/.test(spaced)) {
+  if (
+    /svrchrg|syrchrg|servchg|servicech/.test(lower) ||
+    /\bsv[ry]\s*chrg\b|\bserv\s*chg\b|\bservice\s*ch/.test(spaced)
+  ) {
     out.detectedServiceCharge = price
     return true
   }
-  if (/\btax\b|\bvat\b|\bgst\b|\bhst\b/.test(spaced) && !/\bpre.?tax\b|\breg\b/.test(spaced)) {
+  if (
+    (/\btax\b|\bvat\b|\bgst\b|\bhst\b/.test(spaced) || /gst\d*%|%\s*gst/.test(lower)) &&
+    !/\bpre.?tax\b|\breg\b/.test(spaced)
+  ) {
     out.detectedTax = price
     return true
   }
@@ -163,21 +185,28 @@ function classifySpecial(line: string, price: number, out: ParseResult): boolean
     out.detectedTip = price
     return true
   }
-  if (/\b(grand\s*)?total\b|\bamount\s*due\b/.test(spaced)) {
+  if (/\b(grand\s*)?total\b|\bamount\s*due\b|总计|合計|合计总额/.test(spaced) || /总计/.test(line)) {
     out.detectedTotal = price
     return true
   }
-  if (/\bsub\s*total\b|\bsubtotal\b|\brounding\b/.test(spaced)) {
+  if (/\bsub\s*total\b|\bsubtotal\b|\brounding\b|小计|小計/.test(spaced) || /小计|小計/.test(line)) {
     return true
   }
-  if (/\b(qlub|visa|mastercard|amex|cash|card|paid)\b/.test(spaced)) {
+  if (/\b(qlub|visa|mastercard|amex|cash|card|paid|credit\s*card)\b/.test(spaced)) {
     return true
   }
   return false
 }
 
+function looksLikeSpecialLabel(text: string): boolean {
+  if (/gst\s*:?\s*\d{5,}/i.test(text) || /reg\s*no/i.test(text)) return false
+  return /sub\s*total|subtotal|^\s*total\b|grand\s*total|tax|vat|\bgst\b|%\s*gst|gst\s*\d*%|%\s*\(?excl|hst|tip|gratuity|sv[ry]\s*chrg|serv\s*chg|service\s*ch|rounding|小计|小計|总计|合計|servchg/i.test(
+    text,
+  )
+}
+
 function isServiceChargeLabel(name: string): boolean {
-  return /sv[ry]\s*chrg|svr\s*chrg|syr\s*chrg|service\s*ch/i.test(name)
+  return /sv[ry]\s*chrg|svr\s*chrg|syr\s*chrg|serv\s*chg|service\s*ch/i.test(name)
 }
 
 /** Pull misclassified service/tax/total lines out of items into detected fields. */
@@ -320,30 +349,91 @@ export function parseOcrBoxes(boxes: OcrBox[]): ParseResult {
   if (priceBoxes.length > 0) {
     const priceColX = median(priceBoxes.map((p) => p.cx))
     const usedText = new Set<Enriched>()
+    const usedPrices = new Set<Enriched & { price: number }>()
+
+    // Bottom totals stack first (avoid header GST regs; avoid nearest-Y cross-pairs)
+    const yMax = Math.max(...enriched.map((b) => b.cy), 0)
+    const specialLabels = textBoxes
+      .filter((t) => looksLikeSpecialLabel(t.text) && t.cy >= yMax * 0.55)
+      .sort((a, b) => a.cy - b.cy)
+    if (specialLabels.length >= 2) {
+      const zoneTop = specialLabels[0]!.cy - rowTol * 2
+      const specialPrices = [...priceBoxes]
+        .filter((p) => p.cy >= zoneTop)
+        .sort((a, b) => a.cy - b.cy)
+        .slice(-specialLabels.length)
+      const n = Math.min(specialLabels.length, specialPrices.length)
+      for (let i = 0; i < n; i++) {
+        const label = specialLabels[i]!
+        const pb = specialPrices[i]!
+        if (usedPrices.has(pb) || usedText.has(label)) continue
+        if (classifySpecial(label.text, pb.price, out)) {
+          usedPrices.add(pb)
+          usedText.add(label)
+        }
+      }
+    }
+
+    // Consume FOC / freebie multi-line blocks up front
+    for (const t of textBoxes) {
+      if (usedText.has(t) || !isFocFreebieText(t.text)) continue
+      usedText.add(t)
+      for (const u of textBoxes) {
+        if (usedText.has(u)) continue
+        if (u.cy < t.cy - 2) continue
+        if (u.cy - t.cy > rowTol * 3.2) continue
+        if (u.cx >= priceColX - 8) continue
+        if (isFocFreebieText(u.text) || /吊饰|plush|keyring|exclusive|bao\s*zai/i.test(u.text)) {
+          usedText.add(u)
+        }
+      }
+    }
+    for (const pb of priceBoxes) {
+      if (pb.price === 0) usedPrices.add(pb)
+    }
 
     for (const pb of [...priceBoxes].sort((a, b) => a.cy - b.cy)) {
-      // Special totals from nearby left labels
+      if (usedPrices.has(pb)) continue
+      if (pb.price <= 0 || pb.price > 500) continue
+
+      // Special totals from nearby left labels (fallback if stack zip missed)
       const nearbyLabel = textBoxes
-        .filter((t) => Math.abs(t.cy - pb.cy) <= rowTol * 1.5 && t.cx < pb.cx)
+        .filter(
+          (t) =>
+            !usedText.has(t) &&
+            Math.abs(t.cy - pb.cy) <= rowTol * 1.5 &&
+            t.cx < pb.cx &&
+            looksLikeSpecialLabel(t.text),
+        )
         .sort((a, b) => Math.abs(a.cy - pb.cy) - Math.abs(b.cy - pb.cy))[0]
 
       const labelText = nearbyLabel?.text ?? ''
-      if (classifySpecial(labelText || pb.text, pb.price, out)) {
+      if (labelText && classifySpecial(labelText, pb.price, out)) {
         if (nearbyLabel) usedText.add(nearbyLabel)
+        usedPrices.add(pb)
         continue
       }
 
-      // Prefer left-column name with closest Y
+      // Prefer left-column name with closest Y; prefer CJK anchors on bilingual receipts
       const candidates = textBoxes.filter(
         (t) =>
           !usedText.has(t) &&
           t.cx < priceColX - 8 &&
           Math.abs(t.cy - pb.cy) <= rowTol &&
-          isLikelyItemName(t.text),
+          isLikelyItemName(t.text) &&
+          !looksLikeSpecialLabel(t.text),
       )
 
-      let nameBox =
-        candidates.sort((a, b) => Math.abs(a.cy - pb.cy) - Math.abs(b.cy - pb.cy))[0] ?? null
+      const rankCandidate = (t: Enriched) => {
+        const dy = Math.abs(t.cy - pb.cy)
+        // Prefer CJK (item start) over English translation that often sits nearer the next price
+        const cjkBonus = isCjkHeavy(t.text) ? -8 : 0
+        // Prefer name at/above price slightly (typical receipt alignment)
+        const belowPenalty = t.cy > pb.cy + 6 ? 6 : 0
+        return dy + cjkBonus + belowPenalty
+      }
+
+      let nameBox = candidates.sort((a, b) => rankCandidate(a) - rankCandidate(b))[0] ?? null
 
       // If nothing on same row, take nearest unpaired name above within 2 row heights
       if (!nameBox) {
@@ -355,20 +445,71 @@ export function parseOcrBoxes(boxes: OcrBox[]): ParseResult {
                 t.cx < priceColX - 8 &&
                 t.cy <= pb.cy + rowTol * 0.3 &&
                 pb.cy - t.cy <= rowTol * 2.2 &&
+                isLikelyItemName(t.text) &&
+                !looksLikeSpecialLabel(t.text),
+            )
+            .sort((a, b) => rankCandidate(a) - rankCandidate(b))[0] ?? null
+      }
+
+      // Wider window for bilingual lines where price sits above the Chinese name
+      if (!nameBox) {
+        nameBox =
+          textBoxes
+            .filter(
+              (t) =>
+                !usedText.has(t) &&
+                t.cx < priceColX - 8 &&
+                t.cy >= pb.cy - rowTol * 0.5 &&
+                t.cy - pb.cy <= rowTol * 2.4 &&
+                isCjkHeavy(t.text) &&
                 isLikelyItemName(t.text),
             )
-            .sort((a, b) => pb.cy - a.cy - (pb.cy - b.cy) || Math.abs(a.cy - pb.cy) - Math.abs(b.cy - pb.cy))[0] ??
-          null
+            .sort((a, b) => rankCandidate(a) - rankCandidate(b))[0] ?? null
       }
 
       if (!nameBox) continue
-      if (pb.price > 500) continue
+      if (isFocFreebieText(nameBox.text)) {
+        usedText.add(nameBox)
+        usedPrices.add(pb)
+        continue
+      }
+
+      // English translation under Chinese — only when the primary name is CJK
+      const belowEnglish =
+        isCjkHeavy(nameBox.text)
+          ? textBoxes.find(
+              (t) =>
+                !usedText.has(t) &&
+                t !== nameBox &&
+                t.cx < priceColX - 8 &&
+                t.cy > nameBox!.cy + 2 &&
+                t.cy - nameBox!.cy <= rowTol * 1.6 &&
+                hasLatinWord(t.text) &&
+                !isCjkHeavy(t.text) &&
+                t.text.length >= 4 &&
+                !looksLikeSpecialLabel(t.text) &&
+                !isFocFreebieText(t.text) &&
+                !/^flow\]?$/i.test(t.text),
+            )
+          : undefined
+
+      const wrapFrag = belowEnglish
+        ? textBoxes.find(
+            (t) =>
+              !usedText.has(t) &&
+              t.cy > belowEnglish.cy &&
+              t.cy - belowEnglish.cy <= rowTol * 1.2 &&
+              /^flow\]?$/i.test(t.text),
+          )
+        : undefined
 
       // Merge same-row / just-above fragments (HH prefixes; split names like Gyoza+Cheese)
       const sameRowBits = textBoxes.filter(
         (t) =>
           !usedText.has(t) &&
           t !== nameBox &&
+          t !== belowEnglish &&
+          t !== wrapFrag &&
           t.cx < pb.cx &&
           t.cy <= nameBox!.cy + rowTol * 0.35 &&
           nameBox!.cy - t.cy <= rowTol * 1.15 &&
@@ -390,24 +531,37 @@ export function parseOcrBoxes(boxes: OcrBox[]): ParseResult {
           !isHeaderOrMeta(t.text) &&
           /^[*]?(Gyoza|Chu-?Hi)$/i.test(t.text),
       )
-      const nameParts = [...sameRowBits, ...(aboveFrag ? [aboveFrag] : []), nameBox].sort(
-        (a, b) => a.cy - b.cy || a.cx - b.cx,
-      )
+      const nameParts = belowEnglish
+        ? [...(aboveFrag ? [aboveFrag] : []), belowEnglish, ...(wrapFrag ? [wrapFrag] : [])]
+        : [...sameRowBits, ...(aboveFrag ? [aboveFrag] : []), nameBox]
+      const sortedParts = [...nameParts].sort((a, b) => a.cy - b.cy || a.cx - b.cx)
       const seenTxt = new Set<string>()
       const ordered: string[] = []
-      for (const p of nameParts) {
+      for (const p of sortedParts) {
         const key = p.text.toLowerCase()
         if (seenTxt.has(key)) continue
         seenTxt.add(key)
         ordered.push(p.text)
       }
-      const name = cleanItemName(ordered.join(' '))
-      if (!isLikelyItemName(name)) continue
+      let name = cleanItemName(ordered.join(' '))
+      // Strip wrap leftovers from bilingual tea lines
+      name = name.replace(/\s*Flow\]?\s*$/i, '').trim()
+      if (/^flow\]?$/i.test(name) || name.length < 3) {
+        usedText.add(nameBox)
+        continue
+      }
+      if (!isLikelyItemName(name) && !belowEnglish) {
+        usedText.add(nameBox)
+        continue
+      }
 
       usedText.add(nameBox)
       for (const bit of sameRowBits) usedText.add(bit)
       if (aboveFrag) usedText.add(aboveFrag)
+      if (belowEnglish) usedText.add(belowEnglish)
+      if (wrapFrag) usedText.add(wrapFrag)
       out.items.push({ name, price: pb.price })
+      usedPrices.add(pb)
     }
   }
 
@@ -445,6 +599,11 @@ export function parseOcrBoxes(boxes: OcrBox[]): ParseResult {
     seen.add(key)
     return true
   })
+
+  out.items = out.items.filter((item) => item.price > 0 && !isFocFreebieText(item.name))
+  if (out.detectedTotal != null) {
+    out.items = out.items.filter((item) => Math.abs(item.price - out.detectedTotal!) > 0.05)
+  }
 
   sweepExtrasFromItems(out)
   out.quality = scoreQuality(out.items, out.detectedTotal)
@@ -487,9 +646,10 @@ function parseSequentialFragments(fragments: string[]): ParseResult {
 
   const holdAsTotalsLabel = (text: string) => {
     if (
-      /\b(sub\s*total|subtotal|total|tax|vat|gst|hst|tip|gratuity|sv[ry]\s*chrg|service\s*ch|rounding|qlub|amount\s*due)\b/i.test(
+      /\b(sub\s*total|subtotal|total|tax|vat|gst|hst|tip|gratuity|sv[ry]\s*chrg|serv\s*chg|service\s*ch|rounding|qlub|amount\s*due|grand\s*total|小计|总计)\b/i.test(
         text,
-      )
+      ) ||
+      /小计|总计|servchg/i.test(text)
     ) {
       pendingLabel = text
       return true

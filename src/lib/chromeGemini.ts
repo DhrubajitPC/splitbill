@@ -195,5 +195,6 @@ export async function runChromeGeminiOcr(
   if (parsed.items.length === 0) {
     throw new Error('On-device AI returned no priced items')
   }
+  // Defer reliability check to runOcr scoring — still return for comparison
   return parsed
 }

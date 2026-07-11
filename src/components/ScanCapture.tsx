@@ -93,9 +93,9 @@ export function ScanCapture({ onParsed, onSkip }: Props) {
   return (
     <div className="scan">
       <p className="scan__hint">
-        On-device OCR — nothing is uploaded. First scan may download a model; if that fails we
-        fall back to a backup engine. Prefer a bright, flat JPEG/PNG (not HEIC). You can fix any
-        line on the next screen.
+        On-device only — nothing is uploaded. OCR runs first; Chrome’s built-in AI is used only
+        when it clearly improves the extract. Prefer a bright, flat JPEG/PNG. Fix any line on
+        the next screen.
       </p>
 
       {preview && (
